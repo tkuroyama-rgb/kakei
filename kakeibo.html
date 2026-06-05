@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#fbf7fd">
+<title>夫婦の家計簿</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#fbf7fd; --card:#ffffff; --card2:#f4f1fa; --line:#e9e3f2;
+    --txt:#4a4660; --sub:#9b94ad; --accent:#9ad0f5;
+    --takumi:#7eb6f0; --mai:#f29ec9;
+    --food:#f7c06b; --daily:#86d6b4; --fixed:#a6abf2; --special:#e7a6e0;
+    --good:#34b27d; --bad:#ed7373;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;
+    font-size:15px; line-height:1.5;}
+  body{padding-bottom:72px;}
+  a{color:var(--accent);}
+  button{font-family:inherit; cursor:pointer;}
+  input,select{font-family:inherit; font-size:16px;}
+
+  /* ===== Header ===== */
+  header{position:sticky; top:0; z-index:50; background:rgba(255,255,255,.88); backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line); padding:10px 12px; box-shadow:0 2px 10px #b9a8d322;}
+  .hrow{display:flex; gap:8px; align-items:center;}
+  .hrow select{flex:1; min-width:0; background:var(--card); color:var(--txt);
+    border:1px solid var(--line); border-radius:10px; padding:9px 10px;}
+  .iconbtn{background:var(--card); border:1px solid var(--line); color:var(--txt);
+    border-radius:10px; padding:9px 12px; font-size:15px; white-space:nowrap;}
+  .balancebar{display:flex; align-items:baseline; gap:10px; margin-top:9px;}
+  .balancebar .lbl{font-size:12px; color:var(--sub);}
+  .balancebar .val{font-size:26px; font-weight:700; letter-spacing:.5px;}
+  .balancebar .tag{margin-left:auto; font-size:11px; padding:3px 8px; border-radius:999px;
+    border:1px solid var(--line); color:var(--sub);}
+  .tag.closed{color:#fbbf24; border-color:#fbbf2455; background:#fbbf2415;}
+  .tag.open{color:var(--good); border-color:#22c55e55; background:#22c55e15;}
+
+  /* ===== Tabs ===== */
+  nav{position:fixed; bottom:0; left:0; right:0; z-index:50; display:flex;
+    background:rgba(255,255,255,.94); border-top:1px solid var(--line); backdrop-filter:blur(10px);
+    box-shadow:0 -2px 12px #b9a8d322;}
+  nav button{flex:1; background:none; border:none; color:var(--sub); padding:9px 2px 10px;
+    font-size:11px; display:flex; flex-direction:column; align-items:center; gap:3px;}
+  nav button .ic{font-size:19px; line-height:1;}
+  nav button.active{color:var(--accent);}
+
+  main{padding:12px;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  /* ===== Cards ===== */
+  .card{background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:14px; margin-bottom:12px; box-shadow:0 4px 14px #c3b4dd22;}
+  .card h2{margin:0 0 10px; font-size:15px; display:flex; align-items:center; gap:7px;}
+  .card h2 .ic{font-size:17px;}
+  .muted{color:var(--sub); font-size:13px;}
+
+  /* ===== List rows ===== */
+  .row{display:flex; align-items:center; gap:8px; padding:9px 0; border-bottom:1px solid var(--line);}
+  .row:last-child{border-bottom:none;}
+  .row .date{font-size:11px; color:var(--sub); width:38px; flex-shrink:0;}
+  .row .name{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .row .amt{font-variant-numeric:tabular-nums; font-weight:600; white-space:nowrap;}
+  .chip{font-size:10px; padding:2px 7px; border-radius:999px; font-weight:700; flex-shrink:0;}
+  .chip.takumi{background:#eaf3fe; color:#3f7fc4; border:1px solid #bcd9f6;}
+  .chip.mai{background:#fdeef6; color:#c25a93; border:1px solid #f6cee2;}
+  .delbtn{background:none; border:none; color:#64748b; font-size:17px; padding:2px 4px;}
+
+  /* ===== Add form ===== */
+  .addform{display:grid; grid-template-columns:1fr; gap:8px; margin-top:12px;
+    background:var(--card2); border-radius:12px; padding:11px;}
+  .addform .grid2{display:grid; grid-template-columns:84px 1fr; gap:8px;}
+  .addform .grid2b{display:grid; grid-template-columns:1fr 104px; gap:8px;}
+  .addform input,.addform select{background:var(--bg); color:var(--txt);
+    border:1px solid var(--line); border-radius:9px; padding:10px; width:100%; min-width:0;}
+  .addform input[type=date]{width:100%; font-size:16px; -webkit-appearance:none; appearance:none;}
+  .flabel{font-size:11px; color:var(--sub); margin:-2px 0 -4px;}
+  .seg{display:flex; gap:6px;}
+  .seg button{flex:1; background:var(--bg); border:1px solid var(--line); color:var(--sub);
+    border-radius:9px; padding:9px; font-weight:700; font-size:14px;}
+  .seg button.sel-t{background:var(--takumi); color:#fff; border-color:var(--takumi);}
+  .seg button.sel-m{background:var(--mai); color:#fff; border-color:var(--mai);}
+  .addbtn{background:var(--accent); color:#04212e; border:none; border-radius:9px;
+    padding:11px; font-weight:700; font-size:15px;}
+  .addbtn:disabled{opacity:.4;}
+
+  /* ===== Category chips filter ===== */
+  .catchips{display:flex; gap:7px; overflow-x:auto; padding-bottom:4px; margin-bottom:4px;}
+  .catchips button{flex-shrink:0; background:var(--card); border:1px solid var(--line);
+    color:var(--sub); border-radius:999px; padding:7px 13px; font-size:13px; font-weight:600;}
+  .catchips button.active{color:#fff;}
+
+  /* ===== Summary ===== */
+  .sumgrid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .stat{background:var(--card2); border-radius:11px; padding:11px;}
+  .stat .k{font-size:11px; color:var(--sub);}
+  .stat .v{font-size:18px; font-weight:700; margin-top:2px; font-variant-numeric:tabular-nums;}
+  .person-split{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px;}
+  .pcard{border-radius:12px; padding:12px; border:1px solid var(--line);}
+  .pcard.t{background:#eef5fe; border-color:#cfe2f8;}
+  .pcard.m{background:#fdf0f7; border-color:#f6d5e6;}
+  .pcard .nm{font-weight:700; margin-bottom:6px;}
+  .pcard .ln{display:flex; justify-content:space-between; font-size:13px; padding:2px 0;}
+  .pcard .ln .num{font-variant-numeric:tabular-nums;}
+  .xfer{text-align:center; background:#fff7ec; border:1px solid #f3d9a8; color:#9a6b1f;
+    border-radius:12px; padding:12px; margin-top:10px; font-size:15px;}
+  .savetotal{text-align:center; margin-top:10px; font-size:14px; color:var(--sub);}
+
+  /* targets */
+  .tgt{padding:11px 0; border-bottom:1px solid var(--line);}
+  .tgt:last-child{border-bottom:none;}
+  .tgt .top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;}
+  .tgt .label{font-weight:600;}
+  .tgt .nums{font-size:12px; color:var(--sub); font-variant-numeric:tabular-nums;}
+  .bar{height:8px; background:#ece7f3; border-radius:999px; overflow:hidden;}
+  .bar > div{height:100%; border-radius:999px; transition:width .3s;}
+  .tgt .diff{font-size:12px; margin-top:5px; font-weight:600;}
+  .diff.good{color:var(--good);} .diff.bad{color:var(--bad);}
+
+  /* settings */
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:13px; color:var(--sub); margin-bottom:5px;}
+  .field input,.field select{width:100%; background:var(--bg); color:var(--txt);
+    border:1px solid var(--line); border-radius:9px; padding:10px;}
+  .btn{display:block; width:100%; padding:12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--txt); font-weight:600; margin-top:9px; font-size:15px;}
+  .btn.primary{background:var(--accent); color:#04212e; border:none;}
+  .btn.warn{background:#fde4e4; border-color:#f6bcbc; color:#c0392b;}
+  .btn.gold{background:#fdf1d8; border-color:#f1d89e; color:#9a6b1f;}
+  canvas{max-width:100%;}
+  .chartwrap{position:relative; height:240px; margin-top:6px;}
+  .empty{text-align:center; color:var(--sub); padding:18px 0; font-size:13px;}
+  .hint{font-size:12px; color:var(--sub); margin-top:6px; line-height:1.6;}
+
+  /* ===== Modal ===== */
+  .modal{position:fixed; inset:0; z-index:100; background:#000b; display:none;
+    align-items:flex-end; justify-content:center;}
+  .modal.show{display:flex;}
+  .sheet{background:var(--card); width:100%; max-width:520px; border-radius:18px 18px 0 0;
+    padding:18px 16px calc(18px + env(safe-area-inset-bottom)); border-top:1px solid var(--line);
+    animation:slideup .2s ease;}
+  @keyframes slideup{from{transform:translateY(30px);opacity:.5}to{transform:none;opacity:1}}
+  .sheet h2{margin:0 0 14px; font-size:16px;}
+  .sheet .chk{display:flex; gap:8px; align-items:center; font-size:13px; color:var(--sub);
+    margin:4px 0 10px;}
+  .sheet input[type=date]{font-size:16px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hrow">
+    <select id="monthSelect" onchange="switchMonth(this.value)"></select>
+    <button class="iconbtn" onclick="newMonth()">＋月</button>
+  </div>
+  <div class="balancebar">
+    <span class="lbl">残金（収支）</span>
+    <span class="val" id="balanceVal">¥0</span>
+    <span class="tag" id="statusTag"></span>
+  </div>
+</header>
+
+<main>
+  <!-- 収入 -->
+  <section class="view" id="view-income">
+    <div class="card">
+      <h2><span class="ic">💰</span>収入</h2>
+      <div id="incomeList"></div>
+      <div class="addform" id="incomeForm">
+        <div class="seg" id="incPayer">
+          <button type="button" data-p="takumi" onclick="setSeg('inc','takumi')">拓海</button>
+          <button type="button" data-p="mai" onclick="setSeg('inc','mai')">舞</button>
+        </div>
+        <div class="grid2">
+          <input id="incLabel" placeholder="内容（給料等）" value="給料">
+          <input id="incAmount" inputmode="numeric" placeholder="金額">
+        </div>
+        <button class="addbtn" onclick="addIncome()">収入を追加</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2><span class="ic">📊</span>収入の内訳</h2>
+      <div class="person-split" id="incomeSplit"></div>
+    </div>
+  </section>
+
+  <!-- 支出 -->
+  <section class="view" id="view-expense">
+    <div class="catchips" id="catChips"></div>
+    <div class="card">
+      <h2 id="expHead"><span class="ic">🧾</span>支出</h2>
+      <div id="expenseList"></div>
+      <div class="addform" id="expenseForm">
+        <label class="flabel">日付</label>
+        <input id="expDate" type="date">
+        <div class="grid2b">
+          <input id="expLabel" placeholder="内容（店名・品目）">
+          <input id="expAmount" inputmode="numeric" placeholder="金額">
+        </div>
+        <div class="seg" id="expPayer">
+          <button type="button" data-p="takumi" onclick="setSeg('exp','takumi')">拓海が支払</button>
+          <button type="button" data-p="mai" onclick="setSeg('exp','mai')">舞が支払</button>
+        </div>
+        <button class="addbtn" onclick="addExpense()">支出を追加</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- サマリー -->
+  <section class="view" id="view-summary">
+    <div class="card">
+      <h2><span class="ic">🧮</span>今月のサマリー</h2>
+      <div class="sumgrid">
+        <div class="stat"><div class="k">収入合計</div><div class="v" id="sIncome">¥0</div></div>
+        <div class="stat"><div class="k">支出合計</div><div class="v" id="sExpense">¥0</div></div>
+        <div class="stat"><div class="k">残金（=貯金）</div><div class="v" id="sBalance">¥0</div></div>
+        <div class="stat"><div class="k">支出/収入</div><div class="v" id="sRate">0%</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="ic">👫</span>誰がいくら払ったか</h2>
+      <div class="person-split" id="paySplit"></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="ic">🏦</span>別口座への振り分け・精算</h2>
+      <div id="settleBox"></div>
+      <div class="hint" id="settleHint"></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="ic">🎯</span>目標額との差</h2>
+      <div id="targetList"></div>
+    </div>
+  </section>
+
+  <!-- グラフ -->
+  <section class="view" id="view-graph">
+    <div class="card">
+      <h2><span class="ic">🍩</span>支出の内訳</h2>
+      <div class="chartwrap"><canvas id="chartCat"></canvas></div>
+    </div>
+    <div class="card">
+      <h2><span class="ic">👫</span>支払者別（支出）</h2>
+      <div class="chartwrap"><canvas id="chartPayer"></canvas></div>
+    </div>
+    <div class="card">
+      <h2><span class="ic">📈</span>月別の推移（貯金/収入/支出）</h2>
+      <div class="chartwrap"><canvas id="chartTrend"></canvas></div>
+    </div>
+  </section>
+
+  <!-- 設定 -->
+  <section class="view" id="view-settings">
+    <div class="card">
+      <h2><span class="ic">🎯</span>目標額の設定</h2>
+      <div id="targetInputs"></div>
+      <div class="hint">各費目の上限目標を設定すると、サマリーで「あといくら使えるか」を表示します。</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="ic">⚖️</span>精算の分担方法</h2>
+      <div class="field">
+        <select id="splitModeSel" onchange="setSplitMode(this.value)">
+          <option value="equal">支出を50:50で分ける</option>
+          <option value="income">収入の比率で分ける</option>
+        </select>
+      </div>
+      <div class="hint">「夫婦間の受け渡し」の計算方法です。各支出を二人で分担した想定で、払いすぎた側が受け取ります。</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="ic">🔒</span>月の締め</h2>
+      <div id="closeArea"></div>
+      <div class="hint">締めると残金がその月の貯金として確定し、精算額が記録されます。あとから再開も可能です。</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="ic">💾</span>データ管理</h2>
+      <button class="btn" onclick="exportData()">バックアップを書き出す（JSON）</button>
+      <button class="btn" onclick="document.getElementById('importFile').click()">バックアップを読み込む</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(this)">
+      <button class="btn warn" onclick="deleteMonth()">この月を削除</button>
+      <div class="hint">データはこの端末のブラウザ内（localStorage）に保存されます。機種変更時はバックアップをご利用ください。</div>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button data-v="income" onclick="switchTab('income')"><span class="ic">💰</span>収入</button>
+  <button data-v="expense" onclick="switchTab('expense')"><span class="ic">🧾</span>支出</button>
+  <button data-v="summary" onclick="switchTab('summary')"><span class="ic">🧮</span>収支</button>
+  <button data-v="graph" onclick="switchTab('graph')"><span class="ic">📊</span>グラフ</button>
+  <button data-v="settings" onclick="switchTab('settings')"><span class="ic">⚙️</span>設定</button>
+</nav>
+
+<div class="modal" id="monthModal" onclick="if(event.target===this)closeModal()">
+  <div class="sheet">
+    <h2>🗓 新しい月を追加</h2>
+    <div class="field"><label>開始日（カレンダーから選択）</label>
+      <input type="date" id="nmStart" oninput="syncNmLabel()"></div>
+    <div class="field"><label>終了日（カレンダーから選択）</label>
+      <input type="date" id="nmEnd" oninput="syncNmLabel()"></div>
+    <div class="field"><label>ラベル（自動入力・編集可）</label>
+      <input id="nmLabel" placeholder="2026年5月10日〜6月9日"></div>
+    <label class="chk"><input type="checkbox" id="nmCopy" checked>
+      固定費・目標額・分担方法を前月からコピー</label>
+    <button class="btn primary" onclick="createMonth()">この内容で作成</button>
+    <button class="btn" onclick="closeModal()">キャンセル</button>
+  </div>
+</div>
+
+<script>
+/* ============ 定数 ============ */
+const CATS = [
+  {key:'food',    label:'食費',   color:'#f7c06b', ic:'🍚'},
+  {key:'daily',   label:'日用品費', color:'#86d6b4', ic:'🧴'},
+  {key:'fixed',   label:'固定費',  color:'#a6abf2', ic:'🏠'},
+  {key:'special', label:'特別費',  color:'#e7a6e0', ic:'🎁'},
+];
+const PERSONS = {takumi:{label:'拓海',color:'#7eb6f0'}, mai:{label:'舞',color:'#f29ec9'}};
+const STORE_KEY = 'kakeibo_v1';
+const yen = n => '¥' + Math.round(n).toLocaleString('ja-JP');
+
+/* ============ 状態 ============ */
+let state = load();
+let ui = {tab:'income', cat:'food', incPayer:'takumi', expPayer:'takumi'};
+
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(STORE_KEY));
+    if(s && s.months) return s;
+  }catch(e){}
+  return seed();
+}
+function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+function cur(){ return state.months[state.currentId]; }
+function uid(){ return state._seq = (state._seq||0)+1, 'id'+state._seq+'_'+(state.months?Object.keys(state.months).length:0)+'x'; }
+
+/* ============ 初期データ（手書きの写真より：2026/4/10〜5/9） ============ */
+function seed(){
+  let n = 0;
+  const m = {
+    id:'2026-04', label:'2026年4月10日〜5月9日',
+    startDate:'2026-04-10', endDate:'2026-05-09', closed:false, closedAt:null,
+    splitMode:'equal',
+    targets:{food:70000, daily:10000, fixed:208520, special:30000},
+    income:[
+      {id:'i1', person:'takumi', label:'給料', amount:251681},
+      {id:'i2', person:'mai',    label:'給料', amount:122151},
+    ],
+    expenses:[
+      // 固定費（支払者は推定。設定で修正可）
+      ex('fixed','2026-04-10','家賃',72000,'takumi'),
+      ex('fixed','2026-04-10','駐車場代',3300,'mai'),
+      ex('fixed','2026-04-10','電気',16587,'takumi'),
+      ex('fixed','2026-04-10','Wi-Fi',4180,'mai'),
+      ex('fixed','2026-04-10','水道',4708,'takumi'),
+      ex('fixed','2026-04-10','スマホ（拓海）',3600,'takumi'),
+      ex('fixed','2026-04-10','スマホ（舞）',2811,'mai'),
+      ex('fixed','2026-04-10','車ローン',14400,'takumi'),
+      ex('fixed','2026-04-10','保険',6069,'takumi'),
+      ex('fixed','2026-04-10','おこづかい（拓海）',30000,'takumi'),
+      ex('fixed','2026-04-10','おこづかい（舞）',30000,'mai'),
+      ex('fixed','2026-04-10','生命保険',528,'takumi'),
+      ex('fixed','2026-04-10','奨学金',12857,'mai'),
+      ex('fixed','2026-04-10','通勤費（舞）',7480,'mai'),
+      // 特別費（その他）
+      ex('special','2026-04-10','ソファ分割③',8910,'mai'),
+      ex('special','2026-04-18','ガソリン',5400,'mai'),
+      ex('special','2026-04-15','映画',1280,'mai'),
+      ex('special','2026-04-15','映画',3800,'takumi'),
+      ex('special','2026-04-25','モルック',4378,'mai'),
+      ex('special','2026-04-25','たまごっち',6358,'mai'),
+      ex('special','2026-05-04','まい洋服',7962,'mai'),
+      ex('special','2026-05-06','しまむら',4147,'mai'),
+      ex('special','2026-05-09','田植え弁当',3940,'mai'),
+      ex('special','2026-05-09','母の日ギフト',5697,'mai'),
+      ex('special','2026-05-09','ガソリン',5365,'mai'),
+      ex('special','2026-05-06','クリーニング',2743,'mai'),
+      ex('special','2026-05-05','美容室',22300,'mai'),
+      ex('special','2026-04-30','前月電気差額',380,'takumi'),
+      ex('special','2026-04-30','食費未払い分',10420,'takumi'),
+      // 日用品（支払者は推定）
+      ex('daily','2026-04-12','セリア',110,'mai'),
+      ex('daily','2026-04-12','しまむら',1518,'mai'),
+      ex('daily','2026-04-17','TRIAL',658,'mai'),
+      ex('daily','2026-04-17','ドンキ',96,'mai'),
+      ex('daily','2026-04-24','アオキ',1014,'mai'),
+      ex('daily','2026-04-25','ジョーシン',936,'mai'),
+      ex('daily','2026-04-29','TRIAL',666,'mai'),
+      ex('daily','2026-05-05','ドンキ',214,'mai'),
+      ex('daily','2026-05-06','セリア',440,'mai'),
+      ex('daily','2026-05-07','スギ薬局',1971,'mai'),
+      ex('daily','2026-05-09','ウエルシア',1867,'mai'),
+      // 食費（期間ごとの合計で登録。明細での入力も可能）
+      ex('food','2026-04-19','食費 4/10〜4/19（合計）',22683,'mai'),
+      ex('food','2026-04-29','食費 4/20〜4/29（合計）',25542,'mai'),
+      ex('food','2026-05-09','食費 4/30〜5/9（合計）',28014,'mai'),
+    ],
+  };
+  return {currentId:'2026-04', _seq:100, months:{'2026-04':m}};
+  function ex(category,date,label,amount,payer){ return {id:'s'+(++n),category,date,label,amount,payer}; }
+}
+
+/* ============ 計算 ============ */
+function summary(m){
+  const inc = {takumi:0, mai:0, total:0};
+  m.income.forEach(i=>{ inc[i.person]+=i.amount; inc.total+=i.amount; });
+  const exp = {takumi:0, mai:0, total:0};
+  const byCat = {food:0, daily:0, fixed:0, special:0};
+  m.expenses.forEach(e=>{ exp[e.payer]+=e.amount; exp.total+=e.amount; byCat[e.category]+=e.amount; });
+  const balance = inc.total - exp.total; // 残金＝別口座へ移す貯金額
+  // 分担比（拓海の負担割合）
+  let rt = 0.5;
+  if(m.splitMode==='income' && inc.total>0) rt = inc.takumi/inc.total;
+  // 各自が「共通支出＋貯金」に負担すべき額 − 既に支払った支出 ＝ 別口座へ移す額
+  // （プラス＝別口座へ移す／マイナス＝支払い超過のため受け取る）。moveT+moveM=balance
+  const moveT = rt * inc.total - exp.takumi;
+  const moveM = (1 - rt) * inc.total - exp.mai;
+  return {inc, exp, byCat, balance, rt, moveT, moveM};
+}
+
+/* ============ 描画 ============ */
+function render(){
+  renderMonthSelect();
+  const m = cur(), s = summary(m);
+
+  // ヘッダ残金
+  const bv = document.getElementById('balanceVal');
+  bv.textContent = yen(s.balance);
+  bv.style.color = s.balance>=0 ? 'var(--good)' : 'var(--bad)';
+  const st = document.getElementById('statusTag');
+  st.textContent = m.closed ? '締め済み' : '入力中';
+  st.className = 'tag ' + (m.closed?'closed':'open');
+
+  renderIncome(m,s);
+  renderExpense(m);
+  renderSummary(m,s);
+  renderSettings(m,s);
+  if(ui.tab==='graph') renderCharts(m,s);
+}
+
+function renderMonthSelect(){
+  const sel = document.getElementById('monthSelect');
+  const ids = Object.keys(state.months).sort().reverse();
+  sel.innerHTML = ids.map(id=>{
+    const mm = state.months[id];
+    return `<option value="${id}" ${id===state.currentId?'selected':''}>${mm.label}${mm.closed?' ✓':''}</option>`;
+  }).join('');
+}
+
+function locked(m){ return m.closed; }
+
+function renderIncome(m,s){
+  const list = document.getElementById('incomeList');
+  list.innerHTML = m.income.length ? m.income.map(i=>row(
+    '', `<span class="chip ${i.person}">${PERSONS[i.person].label}</span> ${esc(i.label)}`,
+    i.amount, m.closed?'':`<button class="delbtn" onclick="delIncome('${i.id}')">×</button>`
+  )).join('') : `<div class="empty">収入が未登録です</div>`;
+  document.getElementById('incomeForm').style.display = m.closed?'none':'';
+  // 内訳
+  const sp = document.getElementById('incomeSplit');
+  sp.innerHTML = ['takumi','mai'].map(p=>{
+    const v = s.inc[p], pct = s.inc.total? Math.round(v/s.inc.total*100):0;
+    return `<div class="pcard ${p==='takumi'?'t':'m'}">
+      <div class="nm">${PERSONS[p].label}</div>
+      <div class="ln"><span>収入</span><span class="num">${yen(v)}</span></div>
+      <div class="ln"><span>割合</span><span class="num">${pct}%</span></div>
+    </div>`;
+  }).join('');
+  // seg 選択状態
+  updateSeg('inc');
+}
+
+function renderExpense(m){
+  // カテゴリチップ
+  const chips = document.getElementById('catChips');
+  chips.innerHTML = CATS.map(c=>{
+    const tot = m.expenses.filter(e=>e.category===c.key).reduce((a,e)=>a+e.amount,0);
+    const active = ui.cat===c.key;
+    return `<button class="${active?'active':''}" style="${active?`background:${c.color};border-color:${c.color}`:''}"
+      onclick="setCat('${c.key}')">${c.ic} ${c.label} ${tot?yen(tot):''}</button>`;
+  }).join('');
+  const cat = CATS.find(c=>c.key===ui.cat);
+  document.getElementById('expHead').innerHTML = `<span class="ic">${cat.ic}</span>${cat.label}`;
+  const items = m.expenses.filter(e=>e.category===ui.cat)
+    .sort((a,b)=> a.date<b.date?-1:1);
+  const list = document.getElementById('expenseList');
+  list.innerHTML = items.length ? items.map(e=>row(
+    md(e.date), `${esc(e.label)} <span class="chip ${e.payer}">${PERSONS[e.payer].label}</span>`,
+    e.amount, m.closed?'':`<button class="delbtn" onclick="delExpense('${e.id}')">×</button>`
+  )).join('') : `<div class="empty">${cat.label}が未登録です</div>`;
+  document.getElementById('expenseForm').style.display = m.closed?'none':'';
+  if(!document.getElementById('expDate').value) document.getElementById('expDate').value = defaultDate(m);
+  updateSeg('exp');
+}
+
+function renderSummary(m,s){
+  document.getElementById('sIncome').textContent = yen(s.inc.total);
+  document.getElementById('sExpense').textContent = yen(s.exp.total);
+  const sb = document.getElementById('sBalance');
+  sb.textContent = yen(s.balance);
+  sb.style.color = s.balance>=0?'var(--good)':'var(--bad)';
+  document.getElementById('sRate').textContent = s.inc.total? Math.round(s.exp.total/s.inc.total*100)+'%' : '–';
+
+  // 支払者別
+  const ps = document.getElementById('paySplit');
+  ps.innerHTML = ['takumi','mai'].map(p=>{
+    const net = s.inc[p]-s.exp[p];
+    return `<div class="pcard ${p==='takumi'?'t':'m'}">
+      <div class="nm">${PERSONS[p].label}</div>
+      <div class="ln"><span>収入</span><span class="num">${yen(s.inc[p])}</span></div>
+      <div class="ln"><span>支払</span><span class="num">${yen(s.exp[p])}</span></div>
+      <div class="ln" style="border-top:1px solid var(--line);margin-top:4px;padding-top:5px;">
+        <span>手元差引</span><span class="num" style="color:${net>=0?'var(--good)':'var(--bad)'}">${yen(net)}</span></div>
+    </div>`;
+  }).join('');
+
+  // 別口座への振り分け・精算
+  const mt = Math.round(s.moveT), mm = Math.round(s.moveM), S = Math.round(s.balance);
+  let T=0, giver='', receiver='';
+  if((mt>0) !== (mm>0)){           // 片方プラス・片方マイナスのとき夫婦間で受け渡し
+    T = Math.min(Math.abs(mt), Math.abs(mm));
+    if(mt>0){ giver='拓海'; receiver='舞'; } else { giver='舞'; receiver='拓海'; }
+  }
+  const box = document.getElementById('settleBox');
+  box.innerHTML =
+    `<div class="person-split">${moveCell('拓海','t',mt)}${moveCell('舞','m',mm)}</div>` +
+    (T>=1 ? `<div class="xfer">🤝 <b>${giver}</b> → <b>${receiver}</b> に <b>${yen(T)}</b> 渡す</div>` : '') +
+    `<div class="savetotal">別口座（貯金）へ：<b style="color:${S>=0?'var(--good)':'var(--bad)'}">${S>=0?yen(S):yen(-S)+' を取り崩し'}</b></div>`;
+  const modeTxt = m.splitMode==='income' ? `収入比（拓海 ${Math.round(s.rt*100)}%）` : '50:50';
+  document.getElementById('settleHint').innerHTML =
+    `分担：${modeTxt}。各自の収入から「共通支出＋貯金」の負担分を引いた額を別口座へ移します。`+
+    `<b>マイナス＝支払いが多すぎたため相手から受け取る</b>、という意味です。`;
+
+  // 目標差
+  const tl = document.getElementById('targetList');
+  tl.innerHTML = CATS.map(c=>{
+    const target = m.targets[c.key]||0, used = s.byCat[c.key];
+    const pct = target? Math.min(100, Math.round(used/target*100)) : 0;
+    const diff = target - used;
+    const over = diff < 0;
+    return `<div class="tgt">
+      <div class="top"><span class="label">${c.ic} ${c.label}</span>
+        <span class="nums">${yen(used)} / ${target?yen(target):'未設定'}</span></div>
+      <div class="bar"><div style="width:${target?pct:0}%;background:${over?'var(--bad)':c.color}"></div></div>
+      ${target? `<div class="diff ${over?'bad':'good'}">${over?`目標オーバー ${yen(-diff)}`:`目標まであと ${yen(diff)}`}</div>`
+              : `<div class="hint">設定タブで目標額を入力できます</div>`}
+    </div>`;
+  }).join('');
+}
+
+function renderSettings(m,s){
+  // 目標入力
+  document.getElementById('targetInputs').innerHTML = CATS.map(c=>`
+    <div class="field"><label>${c.ic} ${c.label} の目標額</label>
+    <input inputmode="numeric" value="${m.targets[c.key]||''}" placeholder="例 50000"
+      onchange="setTarget('${c.key}',this.value)"></div>`).join('');
+  document.getElementById('splitModeSel').value = m.splitMode;
+
+  // 締めエリア
+  const ca = document.getElementById('closeArea');
+  if(m.closed){
+    ca.innerHTML = `<div class="stat" style="margin-bottom:9px">
+        <div class="k">確定した貯金額</div><div class="v" style="color:var(--good)">${yen(s.balance)}</div></div>
+      <div class="muted">締め日時：${m.closedAt||'-'}</div>
+      <button class="btn" onclick="reopenMonth()">この月を再開して編集</button>`;
+  }else{
+    ca.innerHTML = `<div class="muted" style="margin-bottom:8px">締めると残金 <b style="color:${s.balance>=0?'var(--good)':'var(--bad)'}">${yen(s.balance)}</b> を貯金として確定します。</div>
+      <button class="btn gold" onclick="closeMonth()">この月を締める</button>`;
+  }
+}
+
+let charts = {};
+function renderCharts(m,s){
+  if(typeof Chart==='undefined'){ return; }
+  Chart.defaults.color = '#7a7390';
+  Chart.defaults.font.family = "'Hiragino Sans','Yu Gothic',sans-serif";
+
+  // カテゴリ別ドーナツ
+  draw('chartCat','doughnut',{
+    labels:CATS.map(c=>c.label),
+    datasets:[{data:CATS.map(c=>s.byCat[c.key]), backgroundColor:CATS.map(c=>c.color), borderWidth:0}]
+  },{plugins:{legend:{position:'bottom'}},cutout:'58%'});
+
+  // 支払者別バー
+  draw('chartPayer','bar',{
+    labels:['拓海','舞'],
+    datasets:[
+      {label:'支出', data:[s.exp.takumi,s.exp.mai], backgroundColor:['#7eb6f0','#f29ec9']},
+      {label:'収入', data:[s.inc.takumi,s.inc.mai], backgroundColor:['#7eb6f066','#f29ec966']},
+    ]
+  },{plugins:{legend:{position:'bottom'}},scales:{y:{ticks:{callback:v=>'¥'+(v/10000)+'万'}}}});
+
+  // 月別推移
+  const ids = Object.keys(state.months).sort();
+  const labels=[],sav=[],inc=[],exp=[];
+  ids.forEach(id=>{ const ss=summary(state.months[id]);
+    labels.push(state.months[id].label.replace(/2026年|2027年/,'').replace(/日.*$/,'日'));
+    sav.push(ss.balance); inc.push(ss.inc.total); exp.push(ss.exp.total); });
+  draw('chartTrend','line',{
+    labels,
+    datasets:[
+      {label:'収入', data:inc, borderColor:'#34b27d', tension:.3, fill:false},
+      {label:'支出', data:exp, borderColor:'#ed7373', tension:.3, fill:false},
+      {label:'貯金', data:sav, borderColor:'#7cc4ef', tension:.3, fill:true, backgroundColor:'#7cc4ef33'},
+    ]
+  },{plugins:{legend:{position:'bottom'}},scales:{y:{ticks:{callback:v=>'¥'+(v/10000)+'万'}}}});
+}
+function draw(id,type,data,opts){
+  if(charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), {type,data,
+    options:Object.assign({responsive:true,maintainAspectRatio:false},opts)});
+}
+
+/* ============ 行ヘルパ ============ */
+function row(date,name,amt,del){
+  return `<div class="row">${date?`<span class="date">${date}</span>`:''}
+    <span class="name">${name}</span>
+    <span class="amt">${yen(amt)}</span>${del||''}</div>`;
+}
+function moveCell(name,cls,v){
+  const dep = v >= 0; // プラス＝別口座へ移す／マイナス＝受け取る
+  return `<div class="pcard ${cls}">
+    <div class="nm">${name}</div>
+    <div class="ln"><span>${dep?'別口座へ移す':'受け取る'}</span>
+      <span class="num" style="color:${dep?'var(--good)':'var(--bad)'}">${yen(Math.abs(v))}</span></div>
+  </div>`;
+}
+function md(d){ const p=d.split('-'); return p.length===3?`${+p[1]}/${+p[2]}`:d; }
+function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function parseISO(s){ const p=s.split('-'); return new Date(+p[0],+p[1]-1,+p[2]); }
+function isoLocal(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function addDays(iso,k){ const d=parseISO(iso); d.setDate(d.getDate()+k); return isoLocal(d); }
+function addMonths(iso,k){ const d=parseISO(iso); d.setMonth(d.getMonth()+k); return isoLocal(d); }
+function fmtLabel(s,e){ if(!s||!e) return ''; const a=s.split('-'),b=e.split('-');
+  return `${+a[0]}年${+a[1]}月${+a[2]}日〜${+b[1]}月${+b[2]}日`; }
+function defaultDate(m){
+  const today = isoLocal(new Date());
+  if(m.startDate && m.endDate){
+    if(today < m.startDate) return m.startDate;
+    if(today > m.endDate)   return m.endDate;
+  }
+  return today;
+}
+
+/* ============ 操作 ============ */
+function switchTab(t){
+  ui.tab=t;
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+t).classList.add('active');
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.v===t));
+  if(t==='graph') renderCharts(cur(), summary(cur()));
+}
+function setCat(k){ ui.cat=k; renderExpense(cur()); }
+function setSeg(which,p){ ui[which+'Payer']=p; updateSeg(which); }
+function updateSeg(which){
+  const cont = document.getElementById(which==='inc'?'incPayer':'expPayer');
+  const sel = ui[which+'Payer'];
+  cont.querySelectorAll('button').forEach(b=>{
+    b.classList.remove('sel-t','sel-m');
+    if(b.dataset.p===sel) b.classList.add(sel==='takumi'?'sel-t':'sel-m');
+  });
+}
+function switchMonth(id){ state.currentId=id; save(); render(); }
+
+function addIncome(){
+  const m=cur(); if(locked(m)) return;
+  const label=document.getElementById('incLabel').value.trim()||'収入';
+  const amount=parseInt(document.getElementById('incAmount').value,10);
+  if(!amount||amount<0) return alert('金額を入力してください');
+  m.income.push({id:uid(),person:ui.incPayer,label,amount});
+  document.getElementById('incAmount').value='';
+  save(); render();
+}
+function delIncome(id){ const m=cur(); if(locked(m))return;
+  m.income=m.income.filter(i=>i.id!==id); save(); render(); }
+
+function addExpense(){
+  const m=cur(); if(locked(m)) return;
+  const date=document.getElementById('expDate').value||defaultDate(m);
+  const label=document.getElementById('expLabel').value.trim();
+  const amount=parseInt(document.getElementById('expAmount').value,10);
+  if(!label) return alert('内容を入力してください');
+  if(!amount||amount<0) return alert('金額を入力してください');
+  m.expenses.push({id:uid(),category:ui.cat,date,label,amount,payer:ui.expPayer});
+  document.getElementById('expLabel').value=''; document.getElementById('expAmount').value='';
+  save(); render();
+}
+function delExpense(id){ const m=cur(); if(locked(m))return;
+  m.expenses=m.expenses.filter(e=>e.id!==id); save(); render(); }
+
+function setTarget(k,v){ cur().targets[k]=parseInt(v,10)||0; save(); render(); }
+function setSplitMode(v){ cur().splitMode=v; save(); render(); }
+
+function closeMonth(){
+  const m=cur(); const s=summary(m);
+  if(!confirm(`この月を締めますか？\n貯金額（残金）：${yen(s.balance)}\n精算：${settleText(s)}`)) return;
+  m.closed=true; m.closedAt=new Date().toLocaleString('ja-JP');
+  save(); render(); alert('締めました。残金を貯金として確定しました。');
+}
+function reopenMonth(){ const m=cur(); m.closed=false; m.closedAt=null; save(); render(); }
+function settleText(s){
+  const mt=Math.round(s.moveT), mm=Math.round(s.moveM);
+  if((mt>0)===(mm>0)) return `拓海 ${yen(mt)} / 舞 ${yen(mm)} を別口座へ`;
+  const a=Math.min(Math.abs(mt),Math.abs(mm));
+  return (mt>0? `拓海→舞 ${yen(a)}` : `舞→拓海 ${yen(a)}`);
+}
+
+function newMonth(){
+  // 最新（終了日が最も後）の月を基準に初期値を決める
+  const ref = Object.values(state.months).sort((a,b)=>(a.endDate||'')<(b.endDate||'')?-1:1).pop() || cur();
+  const start = ref.endDate ? addDays(ref.endDate,1) : isoLocal(new Date());
+  const end   = addDays(addMonths(start,1),-1);
+  document.getElementById('nmStart').value = start;
+  document.getElementById('nmEnd').value   = end;
+  document.getElementById('nmCopy').checked = true;
+  syncNmLabel();
+  document.getElementById('monthModal').classList.add('show');
+}
+function syncNmLabel(){
+  const s=document.getElementById('nmStart').value, e=document.getElementById('nmEnd').value;
+  document.getElementById('nmLabel').value = fmtLabel(s,e);
+}
+function closeModal(){ document.getElementById('monthModal').classList.remove('show'); }
+function createMonth(){
+  const start=document.getElementById('nmStart').value;
+  const end=document.getElementById('nmEnd').value;
+  if(!start||!end) return alert('開始日と終了日を選択してください');
+  if(start>end) return alert('終了日は開始日より後にしてください');
+  const label=document.getElementById('nmLabel').value.trim()||fmtLabel(start,end);
+  const copy=document.getElementById('nmCopy').checked;
+  let id=start; if(state.months[id]) id=start+'#'+Object.keys(state.months).length;
+  const prev=cur();
+  const m={ id, label, startDate:start, endDate:end, closed:false, closedAt:null,
+    splitMode: copy?prev.splitMode:'equal',
+    targets: copy?Object.assign({},prev.targets):{food:0,daily:0,fixed:0,special:0},
+    income:[], expenses:[] };
+  if(copy){
+    prev.expenses.filter(e=>e.category==='fixed').forEach(e=>{
+      m.expenses.push({id:uid(),category:'fixed',date:start,label:e.label,amount:e.amount,payer:e.payer});
+    });
+  }
+  state.months[id]=m; state.currentId=id; save(); closeModal(); render(); switchTab('income');
+}
+function deleteMonth(){
+  if(Object.keys(state.months).length<=1) return alert('最後の1ヶ月は削除できません');
+  if(!confirm('この月のデータを削除します。よろしいですか？')) return;
+  delete state.months[state.currentId];
+  state.currentId = Object.keys(state.months).sort().reverse()[0];
+  save(); render();
+}
+
+/* ============ バックアップ ============ */
+function exportData(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='kakeibo_backup.json'; a.click();
+}
+function importData(input){
+  const f=input.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ const d=JSON.parse(r.result);
+    if(!d.months) throw 0; state=d; save(); render(); alert('読み込みました');
+  }catch(e){ alert('読み込みに失敗しました'); } };
+  r.readAsText(f);
+}
+
+/* ============ 起動 ============ */
+render();
+switchTab('summary');
+</script>
+</body>
+</html>
